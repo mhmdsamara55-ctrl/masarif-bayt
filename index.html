@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مصاريف البيت</title>
+    
+    <!-- Firebase SDK v9 Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    
+    <!-- Google Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #2c3e50;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .auth-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8c 100%);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .auth-screen.active {
+            display: flex;
+        }
+
+        .auth-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .auth-box h1 {
+            color: #1e3a5f;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-box p {
+            color: #6b7280;
+            margin-bottom: 2rem;
+        }
+
+        #google-signin-btn {
+            width: 100%;
+        }
+
+        .app-screen {
+            display: none;
+        }
+
+        .app-screen.active {
+            display: block;
+        }
+
+        .header {
+            background: white;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #1e3a5f;
+            font-size: 1.5rem;
+        }
+
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #1e3a5f;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1rem;
+            direction: rtl;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn {
+            background: #1e3a5f;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: #142842;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .table th {
+            background: #1e3a5f;
+            color: white;
+            padding: 0.75rem;
+            text-align: right;
+        }
+
+        .table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-success {
+            background: #ecfdf5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <!-- Auth Screen -->
+    <div class="auth-screen active" id="authScreen">
+        <div class="auth-box">
+            <h1>🏠 مصاريف البيت</h1>
+            <p>إدارة مصاريف العيلة بسهولة</p>
+            <div id="google-signin-btn"></div>
+        </div>
+    </div>
+
+    <!-- App Screen -->
+    <div class="app-screen" id="appScreen">
+        <div class="container">
+            <div class="header">
+                <h1>🏠 مصاريف البيت</h1>
+                <button class="logout-btn" id="logoutBtn">تسجيل خروج</button>
+            </div>
+
+            <div class="alert alert-success" id="successAlert"></div>
+            <div class="alert alert-error" id="errorAlert"></div>
+
+            <!-- Add Transaction -->
+            <div class="card">
+                <h2>➕ إضافة معاملة</h2>
+                <div class="form-group">
+                    <label>الوصف</label>
+                    <input type="text" id="description" placeholder="مثال: بقالة">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>المبلغ</label>
+                        <input type="number" id="amount" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>النوع</label>
+                        <select id="type">
+                            <option value="expense">مصروف</option>
+                            <option value="income">دخل</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn" id="addBtn">إضافة</button>
+            </div>
+
+            <!-- Transactions List -->
+            <div class="card">
+                <h2>📊 المعاملات</h2>
+                <table class="table" id="transactionsTable">
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الوصف</th>
+                            <th>المبلغ</th>
+                            <th>النوع</th>
+                            <th>إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsBody">
+                        <tr>
+                            <td colspan="5" class="empty">لا توجد معاملات</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+  apiKey: "AIzaSyBax5oKaW4Y3lT4DXBD88tXrUxZd2h6ujc",
+  authDomain: "masarif-bayt-3909f.firebaseapp.com",
+  databaseURL: "https://masarif-bayt-3909f-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "masarif-bayt-3909f",
+  storageBucket: "masarif-bayt-3909f.firebasestorage.app",
+  messagingSenderId: "422644628562",
+  appId: "1:422644628562:web:779736ffaa9787f7b2338b",
+  measurementId: "G-SPPVBZM9H2"
+};
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        let currentUser = null;
+
+        // Initialize Google Sign-In
+        window.onload = function() {
+            google.accounts.id.initialize({
+                client_id: '422644628562-m5oiduvhph3grtdvheogrtt0ilr06143.apps.googleusercontent.com',
+                callback: handleCredentialResponse
+            });
+
+            google.accounts.id.renderButton(
+                document.getElementById('google-signin-btn'),
+                {
+                    theme: 'filled_blue',
+                    size: 'large',
+                    width: '100%'
+                }
+            );
+        };
+
+        function handleCredentialResponse(response) {
+            const credential = response.credential;
+            const base64Url = credential.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            const claims = JSON.parse(jsonPayload);
+
+            firebase.auth().signInWithCredential(
+                firebase.auth.GoogleAuthProvider.credential(credential)
+            ).catch(error => {
+                showAlert('خطأ في تسجيل الدخول', 'error');
+            });
+        }
+
+        // Auth State Listener
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('authScreen').classList.remove('active');
+                document.getElementById('appScreen').classList.add('active');
+                loadTransactions();
+            } else {
+                currentUser = null;
+                document.getElementById('authScreen').classList.add('active');
+                document.getElementById('appScreen').classList.remove('active');
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // Add Transaction
+        document.getElementById('addBtn').addEventListener('click', addTransaction);
+
+        async function addTransaction() {
+            const desc = document.getElementById('description').value.trim();
+            const amount = parseFloat(document.getElementById('amount').value);
+            const type = document.getElementById('type').value;
+
+            if (!desc || !amount) {
+                showAlert('ملء جميع الحقول مطلوب', 'error');
+                return;
+            }
+
+            try {
+                await db.collection('users').doc(currentUser.uid).collection('transactions').add({
+                    description: desc,
+                    amount: amount,
+                    type: type,
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdAt: new Date()
+                });
+
+                document.getElementById('description').value = '';
+                document.getElementById('amount').value = '';
+                showAlert('تم إضافة المعاملة', 'success');
+                loadTransactions();
+            } catch (error) {
+                showAlert('خطأ في الإضافة', 'error');
+            }
+        }
+
+        async function loadTransactions() {
+            if (!currentUser) return;
+
+            try {
+                const snapshot = await db.collection('users').doc(currentUser.uid).collection('transactions').orderBy('date', 'desc').limit(50).get();
+
+                const tbody = document.getElementById('transactionsBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty">لا توجد معاملات</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    const date = data.date?.toDate?.()?.toLocaleDateString('ar-EG') || '--';
+                    const amount = data.amount.toFixed(2);
+                    const type = data.type === 'expense' ? '💸 مصروف' : '💰 دخل';
+
+                    return `
+                        <tr>
+                            <td>${date}</td>
+                            <td>${data.description}</td>
+                            <td>${amount}</td>
+                            <td>${type}</td>
+                            <td><button style="background:#ef4444; color:white; border:none; padding:0.3rem 0.6rem; border-radius:4px; cursor:pointer;" onclick="deleteTransaction('${doc.id}')">حذف</button></td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Load error:', error);
+            }
+        }
+
+        async function deleteTransaction(docId) {
+            if (!confirm('هل متأكد؟')) return;
+
+            try {
+                await db.collection('users').doc(currentUser.uid).collection('transactions').doc(docId).delete();
+                showAlert('تم الحذف', 'success');
+                loadTransactions();
+            } catch (error) {
+                showAlert('خطأ في الحذف', 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertId = type === 'success' ? 'successAlert' : 'errorAlert';
+            const alert = document.getElementById(alertId);
+            alert.textContent = message;
+            alert.classList.add('active');
+
+            setTimeout(() => {
+                alert.classList.remove('active');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
